@@ -2,6 +2,8 @@
 
 Plateforme web complète pour la gestion de cartes grises en France. Service en ligne agréé pour toutes vos démarches d'immatriculation.
 
+![Homepage](https://github.com/user-attachments/assets/1795b4ea-0770-4ee5-bd7b-5609c1c287aa)
+
 ## 🚗 Fonctionnalités
 
 - **Simulateur de taxes** : Calcul précis du coût de votre carte grise basé sur les taux régionaux officiels
