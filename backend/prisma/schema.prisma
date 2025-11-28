@@ -1,0 +1,151 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  nom       String
+  prenom    String?
+  password  String
+  role      Role     @default(CLIENT)
+  statut    UserStatus @default(ACTIF)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  dossiers Dossier[]
+}
+
+enum Role {
+  CLIENT
+  SUPPORT
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIF
+  SUSPENDU
+  SUPPRIME
+}
+
+model Dossier {
+  id              String         @id @default(uuid())
+  reference       String         @unique
+  userId          String
+  statut          DossierStatus  @default(NOUVEAU)
+  region          String
+  montantTotal    Float?
+  paiementStatut  PaiementStatus @default(EN_ATTENTE)
+  antsReference   String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  user            User           @relation(fields: [userId], references: [id])
+  vehicule        Vehicule?
+  documents       Document[]
+  evenements      DossierEvenement[]
+  paiements       Paiement[]
+}
+
+enum DossierStatus {
+  NOUVEAU
+  PAIEMENT_CONFIRME
+  PIECES_EN_COURS
+  PIECES_MANQUANTES
+  PREPARATION_ANTS
+  DEPOSE_ANTS
+  ANTS_EN_COURS
+  ANTS_VALIDE
+  LIVRAISON
+  CLOTURE
+  ANNULE
+}
+
+enum PaiementStatus {
+  EN_ATTENTE
+  VALIDE
+  ECHOUE
+  REMBOURSE
+}
+
+model Vehicule {
+  id              String   @id @default(uuid())
+  dossierId       String   @unique
+  vin             String?
+  marque          String
+  modele          String
+  puissanceFiscale Int
+  co2             Int
+  origine         String   @default("FR")
+  importType      ImportType @default(NONE)
+  createdAt       DateTime @default(now())
+
+  dossier         Dossier  @relation(fields: [dossierId], references: [id])
+}
+
+enum ImportType {
+  NONE
+  UE
+  HORS_UE
+}
+
+model Document {
+  id            String       @id @default(uuid())
+  dossierId     String
+  type          String
+  urlChiffree   String
+  checksum      String
+  statut        DocStatus    @default(EN_ATTENTE)
+  uploadedAt    DateTime     @default(now())
+
+  dossier       Dossier      @relation(fields: [dossierId], references: [id])
+}
+
+enum DocStatus {
+  EN_ATTENTE
+  VALIDE
+  REFUSE
+}
+
+model DossierEvenement {
+  id          String   @id @default(uuid())
+  dossierId   String
+  type        String
+  payloadJson Json
+  auteurId    String?
+  horodatage  DateTime @default(now())
+
+  dossier     Dossier  @relation(fields: [dossierId], references: [id])
+}
+
+model Paiement {
+  id          String         @id @default(uuid())
+  dossierId   String
+  provider    String
+  intentId    String         @unique
+  montant     Float
+  devise      String         @default("EUR")
+  statut      PaiementStatus @default(EN_ATTENTE)
+  factureUrl  String?
+  createdAt   DateTime       @default(now())
+
+  dossier     Dossier        @relation(fields: [dossierId], references: [id])
+}
+
+model ConfigurationFees {
+  id          String   @id @default(uuid())
+  type        String   @unique
+  montant     Float?
+  pourcentage Float?
+  actif       Boolean  @default(true)
+  updatedBy   String?
+  updatedAt   DateTime @updatedAt
+}
