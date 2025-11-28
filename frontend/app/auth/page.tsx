@@ -43,6 +43,15 @@ export default function AuthPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center px-4 py-12">
+      <button
+        onClick={() => router.push("/")}
+        className="mb-4 flex items-center gap-2 text-sm text-slate-300 hover:text-white transition"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        Retour à l'accueil
+      </button>
       <div className="w-full rounded-3xl border border-steel bg-white/5 p-8 shadow-xl">
         <header className="mb-6 text-center">
           <h1 className="text-3xl font-display text-white">
