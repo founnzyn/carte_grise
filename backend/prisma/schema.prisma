@@ -1,0 +1,271 @@
+// Prisma schema for Carte Grise Platform
+// PostgreSQL database with RGPD compliance
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// User roles for the platform
+enum UserRole {
+  CLIENT
+  PROFESSIONAL
+  ADMIN
+}
+
+// Status for registration dossiers
+enum DossierStatus {
+  DRAFT
+  SUBMITTED
+  DOCUMENTS_PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  ANTS_SUBMITTED
+  COMPLETED
+}
+
+// Vehicle fuel types
+enum FuelType {
+  ESSENCE
+  DIESEL
+  HYBRIDE
+  ELECTRIQUE
+  GPL
+  HYDROGENE
+  AUTRE
+}
+
+// Transaction types
+enum TransactionType {
+  ACHAT_NEUF
+  ACHAT_OCCASION
+  CHANGEMENT_ADRESSE
+  DUPLICATA
+  CESSION
+  HERITAGE
+}
+
+// User model with RGPD compliance fields
+model User {
+  id                    String    @id @default(uuid())
+  email                 String    @unique
+  passwordHash          String    @map("password_hash")
+  firstName             String    @map("first_name")
+  lastName              String    @map("last_name")
+  phone                 String?
+  role                  UserRole  @default(CLIENT)
+  companyName           String?   @map("company_name")
+  siretNumber           String?   @map("siret_number")
+  isEmailVerified       Boolean   @default(false) @map("is_email_verified")
+  isActive              Boolean   @default(true) @map("is_active")
+  lastLoginAt           DateTime? @map("last_login_at")
+  rgpdConsentAt         DateTime? @map("rgpd_consent_at")
+  rgpdConsentVersion    String?   @map("rgpd_consent_version")
+  dataRetentionExpiry   DateTime? @map("data_retention_expiry")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+  deletedAt             DateTime? @map("deleted_at")
+
+  dossiers              Dossier[]
+  notifications         Notification[]
+  refreshTokens         RefreshToken[]
+  addresses             Address[]
+
+  @@map("users")
+}
+
+// Address model for users
+model Address {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  street        String
+  complement    String?
+  postalCode    String   @map("postal_code")
+  city          String
+  country       String   @default("France")
+  isDefault     Boolean  @default(false) @map("is_default")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("addresses")
+}
+
+// Refresh tokens for JWT authentication
+model RefreshToken {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  token       String   @unique
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  revokedAt   DateTime? @map("revoked_at")
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+// Vehicle model
+model Vehicle {
+  id                    String    @id @default(uuid())
+  registrationNumber    String?   @map("registration_number")
+  vin                   String?   @unique
+  brand                 String
+  model                 String
+  version               String?
+  firstRegistrationDate DateTime? @map("first_registration_date")
+  purchaseDate          DateTime? @map("purchase_date")
+  fiscalPower           Int       @map("fiscal_power")
+  co2Emissions          Int?      @map("co2_emissions")
+  fuelType              FuelType  @map("fuel_type")
+  mileage               Int?
+  isNew                 Boolean   @default(false) @map("is_new")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  dossier               Dossier?
+
+  @@map("vehicles")
+}
+
+// Main dossier model for carte grise registration
+model Dossier {
+  id                  String            @id @default(uuid())
+  reference           String            @unique
+  userId              String            @map("user_id")
+  vehicleId           String            @unique @map("vehicle_id")
+  transactionType     TransactionType   @map("transaction_type")
+  status              DossierStatus     @default(DRAFT)
+  
+  // Owner information (encrypted in production)
+  ownerFirstName      String            @map("owner_first_name")
+  ownerLastName       String            @map("owner_last_name")
+  ownerBirthDate      DateTime?         @map("owner_birth_date")
+  ownerBirthPlace     String?           @map("owner_birth_place")
+  ownerAddress        String            @map("owner_address")
+  ownerPostalCode     String            @map("owner_postal_code")
+  ownerCity           String            @map("owner_city")
+  
+  // Tax calculation
+  regionalTax         Float             @map("regional_tax")
+  managementFee       Float             @map("management_fee")
+  deliveryFee         Float             @map("delivery_fee")
+  ecoMalus            Float             @default(0) @map("eco_malus")
+  totalAmount         Float             @map("total_amount")
+  
+  // Payment
+  isPaid              Boolean           @default(false) @map("is_paid")
+  paymentDate         DateTime?         @map("payment_date")
+  paymentReference    String?           @map("payment_reference")
+  
+  // ANTS workflow
+  antsReference       String?           @map("ants_reference")
+  antsSubmittedAt     DateTime?         @map("ants_submitted_at")
+  antsStatus          String?           @map("ants_status")
+  
+  // Delivery
+  deliveryMethod      String?           @map("delivery_method")
+  trackingNumber      String?           @map("tracking_number")
+  deliveredAt         DateTime?         @map("delivered_at")
+  
+  // Notes
+  internalNotes       String?           @map("internal_notes")
+  rejectionReason     String?           @map("rejection_reason")
+  
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+
+  user                User              @relation(fields: [userId], references: [id])
+  vehicle             Vehicle           @relation(fields: [vehicleId], references: [id])
+  documents           Document[]
+  statusHistory       DossierStatusHistory[]
+
+  @@map("dossiers")
+}
+
+// Document model for uploaded files
+model Document {
+  id            String   @id @default(uuid())
+  dossierId     String   @map("dossier_id")
+  type          String
+  fileName      String   @map("file_name")
+  fileSize      Int      @map("file_size")
+  mimeType      String   @map("mime_type")
+  storagePath   String   @map("storage_path")
+  isVerified    Boolean  @default(false) @map("is_verified")
+  verifiedAt    DateTime? @map("verified_at")
+  verifiedBy    String?  @map("verified_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  dossier       Dossier  @relation(fields: [dossierId], references: [id], onDelete: Cascade)
+
+  @@map("documents")
+}
+
+// Dossier status history for tracking
+model DossierStatusHistory {
+  id          String        @id @default(uuid())
+  dossierId   String        @map("dossier_id")
+  status      DossierStatus
+  comment     String?
+  changedBy   String?       @map("changed_by")
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  dossier     Dossier       @relation(fields: [dossierId], references: [id], onDelete: Cascade)
+
+  @@map("dossier_status_history")
+}
+
+// Notification model
+model Notification {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  title       String
+  message     String
+  type        String
+  isRead      Boolean  @default(false) @map("is_read")
+  readAt      DateTime? @map("read_at")
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+// Regional tax rates by department
+model RegionalTaxRate {
+  id              String   @id @default(uuid())
+  departmentCode  String   @unique @map("department_code")
+  departmentName  String   @map("department_name")
+  region          String
+  ratePerHp       Float    @map("rate_per_hp")
+  exonerationClean Boolean @default(false) @map("exoneration_clean")
+  exonerationRate Float?   @map("exoneration_rate")
+  validFrom       DateTime @map("valid_from")
+  validTo         DateTime? @map("valid_to")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("regional_tax_rates")
+}
+
+// Eco malus thresholds
+model EcoMalusThreshold {
+  id          String   @id @default(uuid())
+  year        Int
+  co2Min      Int      @map("co2_min")
+  co2Max      Int?     @map("co2_max")
+  amount      Float
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@unique([year, co2Min])
+  @@map("eco_malus_thresholds")
+}
